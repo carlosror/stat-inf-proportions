@@ -4,5 +4,5 @@ https://carlosror.github.io/stat-inf-proportions/
 
 ### Description
 
-This notebook is about making inferences about the true proportion $p$ 
+This project is about making inferences about the true proportion  
 of Americans working full time.
