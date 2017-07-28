@@ -1,0 +1,331 @@
+---
+title: "Inference on a population proportion"
+output: 
+  html_notebook:
+    toc: true
+    toc_depth: 5
+    toc_float: true
+---
+
+<style type="text/css">
+
+body, td {
+   font-size: 18px;
+}
+h1 {
+  font-size: 32px;
+  font-weight: bold;
+}
+h2 {
+  font-size: 28px;
+  font-weight: bold;
+}
+h3 {
+  font-size: 24px;
+  font-weight: bold;
+}
+h4 {
+  font-size: 20px;
+  font-weight: bold;
+}
+code.r{
+  font-size: 16px;
+}
+pre {
+  font-size: 16px
+}
+</style>
+
+## 1.0 Introduction
+
+The [General Social Survey (GSS)](http://gss.norc.org/) is a sociological survey used to collect data on a wide variety of demographic characteristics and attitudes of residents of the United States. The data has been collected since 1972, approximately every 2 years, by the [National Opinion Research Center (NORC)](http://www.norc.org/Pages/default.aspx) at the University of Chicago. The latest data is from the spring of 2016. The data for the each year the survey was carried out can be found [here](http://gss.norc.org/get-the-data/stata) in STATA format, and [here](http://gss.norc.org/get-the-data/spss) in SPSS format. The [GSS Codebook](http://gss.norc.org/Get-Documentation), in PDF format, documents the survey data for all years. The R notebook can be found in the project’s [Github page](https://github.com/carlosror/stat-inf-proportions).
+
+## 2.0 Variable of interest
+
+This notebook is about making inferences about the true proportion $p$ of Americans working full time. The variable was coded as $WRKSTAT$ in the [GSS Codebook](http://gss.norc.org/documents/codebook/GSS_Codebook_mainbody.pdf), on page 117. The survey asked: **"Last week were you working full time, part time, going to school, keeping house, or what?"**
+
+## 3.0 Reading the data
+
+The R library [**foreign**](https://cran.r-project.org/web/packages/foreign/foreign.pdf) allows R to read in STATA files, among others. We can then get the variable we want as a single column vector.
+
+```{r, message=FALSE, warning=FALSE}
+library(foreign) # Used to read STATA (*.DTA) files
+gss2016 <- read.dta("GSS2016.DTA")
+gss2016_wrkstat <- gss2016$wrkstat
+summary(gss2016_wrkstat)
+```
+
+
+## 4.0 $95\%$ confidence interval of the average number of hours worked
+
+We can compute a $95\%$ condifence interval for the true proportion of Americans who work full-time, $p$, by using the [Central Limit Theorem (CLT)](http://www.stat.wmich.edu/s160/book/node43.html). The CLT says that the sampling distribution of a statistic, in this case a proportion, is approximately normal, with the true population proportion, $p$, as its mean, and the standard error of the sample, $SE=\sqrt{\frac{p\cdot (1-p)}{n}}$, as its standard deviation, where $n$ the size of each sample. 
+
+$$
+\hat{p}\sim\ N(mean = p, sd=\sqrt{\frac{p\cdot (1-p)}{n}})
+$$
+
+If we were able to draw many samples of equal size of the proportion of Americans who work full-time, and computed the mean of each sample, the CLT says the distribution of that proportion is approximately normal. Since we typically don't know the true proportion $p$, we use the point estimate $\hat{p}$ as a proxy for the purpose of computing the standard error $SE$ and the $95\%$ confidence interval.
+
+In reality, we can only draw one sample from the population. We typically don't know the true proportion $p$ of the population. We also don't know where the sample proportion we have drawn, $\hat{p}$, falls in the sampling distribution, but from the CLT, we do know that the proportions of $95\%$ of the samples drawn will fall within $1.96\cdot \sqrt{\frac{p\cdot (1-p)}{n}}=1.96\cdot SE$ of $p$. For $95\%$ of the samples we draw, an interval within $1.96\cdot \sqrt{\frac{\hat{p}\cdot (1-\hat{p})}{n}}=1.96\cdot SE_{\hat{p}}$ of $\hat{p}$ will include the true proportion of the population. For any sample whose proportion estimate $\hat{p}$ falls within $1.96\cdot SE$ of $p$, which will happen $95\%$ of the time, we are $95\%$ confident that an interval centered around $\hat{p}$ and within $1.96\cdot SE_{\hat{p}}$ of $\hat{p}$ will contain the true proportion of the population.
+
+### 4.1 An example
+
+It is much easier to understand with an actual example and a plot. Suppose we have a population with a true proportion $p=0.5$, and we draw a sample of size $n=100$. Per the CLT, the distribution of sample proportions taken from that population is approximately normal: $\hat{p}\sim\ N(mean = 0.5, sd=\sqrt{\frac{0.5\cdot (1-0.5)}{100}}=0.05)$. Any sample drawn from the population whose estimate $\hat{p}$ falls within $(0.5-1.96\cdot0.05,\ 0.5+1.96\cdot0.05)=(0.402,\ 0.598)$ will have a $95\%$ confidence interval that contains the true proportion, $p=0.5$. If we draw a sample from the population, and the sample proportion $\hat{p}=0.58$, the $95\%$ confidence interval centered around $\hat{p}=0.58$ will contain the true mean $p=0.5$. Since the person taking the sample typically doesn't know $p$, she will use her sample's $\hat{p}$ to compute $SE_{\hat{p}}$, for the purposes of computing the $95\%$ confidence interval. $SE_{\hat{p}}$ will be: $SE_{\hat{p}}=\sqrt{\frac{0.58\cdot (1-0.58)}{100}}=0.0494$, and the $95\%$ confidence interval will be: $(0.58-1.96\cdot0.0494,\ 0.58+1.96\cdot0.0494)=(0.4832,\ 0.6768)$, which contains the true proportion $p=0.5$.
+
+```{r, echo=FALSE}
+#http://www.statmethods.net/advgraphs/probability.html
+
+n <- 100
+p <- 0.50; se <- sqrt(p * (1 - p) / n)
+
+# x = p +/- 4 std_dev's
+x <- seq(-4,4,length=1000)*se + p
+hx <- dnorm(x, p ,se)
+
+upper_bound <- p + 1.96 * se 
+lower_bound <- p - 1.96 * se 
+
+plot(x, hx, type="n", xlab = "", ylab="", main="Sampling distribution of a proportion", axes=FALSE)
+
+i <- x >= upper_bound & x <= max(x) # indexes of x where x >= upper_bound
+lines(x, hx) # plots normal distribution
+polygon(c(upper_bound,x[i],max(x)), c(0,hx[i],0), col="grey") # shades area grey where x >= lower_bound
+
+j <- x >= min(x) & x <= lower_bound # indexes of x where x <= than lower_bound
+polygon(c(min(x),x[j],lower_bound), c(0,hx[j],0), col="grey") # shades area grey where x <= lower_bound
+
+axis(1, at=seq(0.3, 0.7, 0.02), pos=0) # draws axis
+abline(v=p)
+grid()
+
+p_hat <- 0.58
+se_p_hat <- sqrt(p_hat * (1 - p_hat) / n)
+axis(1, at=c(p_hat - 1.96 * se_p_hat, p_hat, p_hat + 1.96 * se_p_hat), pos=-1.5, col = "blue", lwd = 2, lwd.ticks = 1) 
+
+text(x = 0.32, y = 7, labels = expression(paste(p, " = 0.5")))
+text(x = 0.32, y = 6.4, labels = expression(paste(n, " = 100")))
+text(x = 0.327, y = 5.7, labels = expression(paste(SE, " = 0.05")))
+text(x = 0.32, y = 5.0, labels = expression(paste(hat(p), " =0.58")))
+text(x = 0.336, y = 4.2, labels = expression(paste(SE[hat(p)], " =0.04934")))
+```
+
+If we are unlucky and  draw a sample whose proportion $\hat{p}$ falls in the shaded area, which should only happen $5\%$ of the time, its $95\%$ confidence interval will not include the true proportion $p=0.5$.
+
+```{r, echo=FALSE}
+#http://www.statmethods.net/advgraphs/probability.html
+
+n <- 100
+p <- 0.50; se <- sqrt(p * (1 - p) / n)
+
+# x = p +/- 4 std_dev's
+x <- seq(-4,4,length=1000)*se + p
+hx <- dnorm(x, p ,se)
+
+upper_bound <- p + 1.96 * se 
+lower_bound <- p - 1.96 * se 
+
+plot(x, hx, type="n", xlab = "", ylab="", main="Sampling distribution of a proportion", axes=FALSE)
+
+i <- x >= upper_bound & x <= max(x) # indexes of x where x >= upper_bound
+lines(x, hx) # plots distribution # plots normal distribution
+polygon(c(upper_bound,x[i],max(x)), c(0,hx[i],0), col="grey") # plots area where x >= mu
+
+j <- x >= min(x) & x <= lower_bound # indexes of x where x <= than lower_bound
+polygon(c(min(x),x[j],lower_bound), c(0,hx[j],0), col="grey") # shades area grey where x <= lower_bound
+
+axis(1, at=seq(0.3, 0.7, 0.02), pos=0) # draws axis
+abline(v=p)
+grid()
+
+p_hat <- 0.38
+se_p_hat <- sqrt(p_hat * (1 - p_hat) / n)
+axis(1, at=c(p_hat - 1.96 * se_p_hat, p_hat, p_hat + 1.96 * se_p_hat), pos=-1.5, col = "red", lwd = 2, lwd.ticks = 1) 
+
+text(x = 0.32, y = 7, labels = expression(paste(p, " = 0.5")))
+text(x = 0.32, y = 6.4, labels = expression(paste(n, " = 100")))
+text(x = 0.327, y = 5.7, labels = expression(paste(SE, " = 0.05")))
+text(x = 0.32, y = 5.0, labels = expression(paste(hat(p), " =0.38")))
+text(x = 0.336, y = 4.2, labels = expression(paste(SE[hat(p)], " =0.04854")))
+```
+
+### 4.2 Conditions for the confidence interval
+
+The conditions for the validity of the confidence interval are:
+
+1. Sampled observations must be independent.
+
+2. We expect at least 10 successes and 10 failures in the sample, i.e., $n\cdot\hat{p}\geq10$ and $n\cdot(1-\hat{p})\geq10$.
+
+The first criteria for this random sample can be verified by checking that the observations come from a simple random sample and represent less than $10\%$ of the population. The population consists of Americans who work part-time or full-time, and the sample size can be computed by R as
+
+```{r}
+n <- length(gss2016_wrkstat)
+cat("Sample size n =", n)
+```
+
+and it is certainly less than $10\%$ of the population. 
+
+For the second criteria, since we don't know $p$, we will use our point estimate $\hat{p}$, which can be computed using R:
+
+```{r}
+p_hat <- table(gss2016$wrkstat)["working fulltime"] / sum(table(gss2016_wrkstat))
+p_hat <- as.numeric(p_hat)
+cat("Estimate of proportion working full-time =", p_hat)
+```
+
+and so the number of successes is
+
+```{r}
+number_of_successes <- floor(n * p_hat)
+cat("Number of successes:", number_of_successes)
+```
+
+and the number of failures
+
+```{r}
+number_of_failures <- floor(n * (1 - p_hat))
+cat("Number of failures:", number_of_failures)
+```
+
+both of which are much greater than $10$.
+
+### 4.3 Critical value $z^*$
+
+The $z^*$ corresponding to a $95\%$ confidence interval in the [standard normal distribution](https://www.mathsisfun.com/data/standard-normal-distribution-table.html) is approximately 1.96. We can compute it more exactly using R:
+
+```{r}
+z_star <- qnorm(p = 0.025, mean = 0, sd = 1, lower.tail = FALSE)
+cat("z-value corresponding to 95% confidence interval:", z_star)
+```
+
+### 4.4 Standard error of the sample
+
+The standard error of the sample is
+```{r}
+se_p_hat <- sqrt(p_hat * (1 - p_hat) / n)
+cat("Standard error SE =", se_p_hat)
+```
+
+### 4.5 Confidence interval
+
+Computing the confidence interval bounds
+
+```{r}
+conf_int_lb <- p_hat - z_star * se_p_hat
+conf_int_ub <- p_hat + z_star * se_p_hat
+cat("Confidence interval lower bound:", conf_int_lb, "\nConfidence interval upper bound:", conf_int_ub)
+```
+
+Hence, our confidence interval is
+$$
+0.4612\pm 1.96\cdot 0.0093=(0.4430, 0.4795)
+$$
+
+We are $95\%$ confident that the true proportion of Americans employed full-time is between $0.4430$ and $0.4795$.
+
+## 5.0 Hypothesis testing
+
+We can use the CLT and the data collected to construct a hypothesis testing framework. The hypothesis test considers two possible interpretations of our data, a null hypothesis $H_0$, and an alternative hypothesis $H_a$. $H_0$ basically says that the sampled data could have been drawn simply by chance, and so, it is misleading. There is "nothing going on". $H_a$ takes the view that the data collected reveals that "something *is* going on". We will either reject the null hypothesis in favor of this alternative, or we will fail to reject it and conclude the sampled data could have been drawn simply by chance. Note that even if we fail to reject $H_0$, that does not mean we accept it as the ground truth, it's just that the data we have collected does not allows us to discard $H_0$.
+
+For example, can try to answer whether the proportion of Americans who work full-time is greater than 0.45. The framework for the hypothesis test would be as follows:
+
+$$
+H_{0}:The\ true\ proportion\ of\ Americans\ who\ work\ full-time\ is\ p_0=0.45
+\\
+H_{a}:The\ true\ proportion\ of\ Americans\ who\ work\ full-time\ is\ greater\ than\ p_0=0.45
+$$
+
+To perform the test, we assume that $H_0$ is true and ask, given that $H_0$ is true, how probable it is to observe data as extreme or more as the one we have.
+
+### 5.1 The null hypothesis proportion $p_0$
+
+Since in the hypothesis test we assume that $H_0$ is the truth and the true proportion of Americans who work full-time is $p_0 = 0.45$, we will use $p_0$ to compute $SE_{p_0}$, the standard error under the null hypothesis.
+```{r}
+p_null <- 0.45
+se_p_null <- sqrt(p_null * (1 - p_null) / n)
+cat("Standard error under the null hypothesis:", se_p_null)
+```
+
+### 5.2 Conditions for hypothesis testing
+
+The conditions to perform the hypothesis test are similar to the ones we checked to compute the confidence interval.
+
+1. Sampled observations must be independent.
+
+2. Each sample should have at least 10 successses and 10 failures. We use the null hypothesis proportion $p_0$ to compute the numbers of successes and failures.
+
+$$
+n\cdot \hat{p_0}\geq 10\\ n\cdot (1 - \hat{p_0})\geq 10
+$$
+
+Verifying the success-failure conditions for hypothesis testing
+```{r}
+number_of_successes <- floor(n * p_null)
+number_of_failures <- floor(n * (1 - p_null))
+cat("Number of successes:", number_of_successes, "\nNumber of failures:", number_of_failures)
+```
+
+The success-failure conditions are satisfied.
+
+### 5.3 The p-value
+
+The p-value quantifies the strength of the evidence against the null hypothesis. We compute it by asking ourselves, given that the null hypothesis $H_0$ is true, what is the probability of observing data as extreme or more as the one we have.
+
+$$
+P(observing\ data\ as\ extreme\ or\ more\ |\ H_{0}\ is\ true)
+$$
+
+That probability is the p-value. Typically, we use a $5\%$ significance level as the threshold to reject the null. If the p-value is less than $5\%$, we reject the null in favor of the alternative.
+
+For our hypothesis framework, under $H_0$ and the CLT, $\hat{p}$ is approximately normally distributed, with $p = p_0 = 0.45$ and $SE_{p_{0}}=0.0093$. What is the probability of drawing a sample with a proportion $\hat{p}=0.46124$ or higher, given that the null hypothesis is true?
+
+$$
+P(drawing\ a\ sample\ where\ the\ proportion\ of\ Americans\\ employed\ full-time\ is\ 0.4612\ or\ higher\ |\ H_{0}\ is\ true)
+\\
+P(\hat{p}\ \geq\ 0.46124\ |\ p =  0.45)
+$$
+
+We can do it graphically:
+```{r}
+#http://www.statmethods.net/advgraphs/probability.html
+
+# x = p_null +/- 4 std_dev's
+x <- seq(-4,4,length=1000)*se_p_null + p_null
+hx <- dnorm(x, p_null ,se_p_null)
+
+lb <- p_hat; ub <- max(x) 
+
+plot(x, hx, type="n", xlab="Proportion of Americans employed full-time", ylab="", main="Sampling distribution under null hypothesis", axes=FALSE)
+
+i <- x >= lb & x <= ub # indexes of x where x >= than lb and <= than ub
+lines(x, hx) # plots normal distribution
+polygon(c(lb,x[i],ub), c(0,hx[i],0), col="red") # shades area where x >= lb in red
+
+axis(1, at=seq(0.41, 49, 0.005), pos=0) # draws axis
+abline(v=p_null)
+grid()
+```
+
+That probability is the area under the sampling distribution shaded in red in the plot. It can be computed using `pnorm()`.
+```{r}
+area <- pnorm(q = p_hat, mean = p_null, sd = se_p_null, lower.tail = FALSE)
+cat("Our p-value:", area)
+```
+
+So our [p-value](https://en.wikipedia.org/wiki/P-value), the probability of drawing a sample with $\hat{p}=0.461243$ or higher under the null hypothesis, is about $0.113$. That probability is high. At the $5\%$ significance level, we can't reject the null hypothesis: a sample proportion of $\hat{p}=0.461243$ or higher could happen simply by chance if the true proportion is $0.45$.
+
+## References
+
+1. Çetinkaya-Rundel, M. ***Data Analysis and Statistical Inference***. Spring 2014. [Coursera](www.coursera.org).
+
+2. Diez, D., Barr, C., Çetinkaya-Rundel, M. ***OpenIntro Statistics, Second Edition***. PDF.
+
+3. Navidi, W. ***Statistics for engineers and scientists, Third Edition***. New York: McGraw Hill, 2011.
+
+4. UCLA Institute for Digital Reserach and Education, ***HOW CAN I INCLUDE GREEK LETTERS IN MY PLOT LABELS? | R CODE FRAGMENTS***. Retrieved from [https://stats.idre.ucla.edu](https://stats.idre.ucla.edu/r/codefragments/greek_letters/)
+
+5. Kabacoff, R. ***Probability Plots***. Retrieved from [http://www.statmethods.net](http://www.statmethods.net/advgraphs/probability.html)
+
+6. Carlos Cinelli and Tom, ***Code chunk font size in Rmarkdown with knitr and latex***. Retrieved from [https://stackoverflow.com](https://stackoverflow.com/questions/25646333/code-chunk-font-size-in-rmarkdown-with-knitr-and-latex)
+
+7. DrewConway and Christopher DuBois, ***Getting LaTeX into R Plots***. Retrieved from [https://stackoverflow.com](https://stackoverflow.com/questions/1395105/getting-latex-into-r-plots)
